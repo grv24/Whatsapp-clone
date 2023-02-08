@@ -5,19 +5,27 @@ import React,{useState,useEffect} from 'react'
 import'./Chat.css'
 import { useParams } from 'react-router-dom';
 import db from './Config'
+import firebase from 'firebase/compat/app';
+import { useStateValue } from './StateProvider';
 
 function ChatBar() {
-
+    
     const [input, setInput] = useState("");
     const {roomId} = useParams();
     const [roomName,setRoomName] = useState("");
-    
+    const [messages,setMessages]=useState([])
+    const [{user},dispatch]=useStateValue();
     useEffect(()=>{
        if(roomId){
         db.collection("rooms")
         .doc(roomId)
         .onSnapshot((snapshot)=>setRoomName
         (snapshot.data().name));
+
+        db.collection('rooms').doc(roomId).collection("messages").orderBy('timestamp','asc')
+        .onSnapshot((snapshot)=> setMessages(snapshot.docs.map((doc)=>
+        doc.data()
+        )))
        }
     },[roomId])
     
@@ -25,6 +33,13 @@ function ChatBar() {
      const sendMessage=(e)=>{
         e.preventDefault();
         console.log(input)
+        db.collection("rooms").doc(roomId).collection('messages').add({
+          message: input,
+          name:user.displayName,
+          timestamp:firebase.firestore.FieldValue.serverTimestamp(),
+        })
+
+
         setInput("")
       }
   return (
@@ -48,13 +63,16 @@ function ChatBar() {
              </div>
          </div>
          <div className='chat__body'>
-              <p className={`chat__message ${true &&"chat__receiver"}`}>
-              <span className='chat__name'>Sonny</span>
-                  This is a message
-              <span className='chat__timestamp'>
-                  {new Date().toUTCString()}
-              </span>
-            </p>
+         {messages.map((message)=>(
+          <p className={`chat__message ${true &&"chat__receiver"}`}>
+          <span className='chat__name'>{message.name}</span>
+              {message.messages}
+          <span className='chat__timestamp'>
+              {new Date(message.timestamp?.toDate()).toUTCString()}
+          </span>
+        </p>
+         ))}
+             
          </div>
           
       <div className='chat__footer'>
